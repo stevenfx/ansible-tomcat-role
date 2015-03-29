@@ -1,0 +1,54 @@
+---
+- name: add group "tomcat"
+  group: name=tomcat
+  sudo: True
+
+- name: add user "tomcat"
+  user: name=tomcat group=tomcat home=/usr/share/tomcat
+  sudo: True
+
+- name: delete home dir for symlink of tomcat
+  shell: rm -fr /usr/share/tomcat
+  sudo: True
+
+- name: Download Tomcat
+  get_url: url=http://apache.is.co.za/tomcat/tomcat-7/v7.0.59/bin/apache-tomcat-7.0.59.tar.gz dest=/opt/apache-tomcat-7.0.59.tar.gz
+  sudo: True
+
+- name: Extract archive
+  command: chdir=/usr/share /bin/tar xvf /opt/apache-tomcat-7.0.59.tar.gz -C /opt/ creates=/opt/apache-tomcat-7.0.59
+  sudo: True
+
+- name: Symlink install directory
+  file: src=/opt/apache-tomcat-7.0.59 path=/usr/share/tomcat state=link
+  sudo: True
+
+- name: Change ownership of Tomcat installation
+  file: path=/usr/share/tomcat/ owner=tomcat group=tomcat state=directory recurse=yes
+  sudo: True
+
+- name: Configure Tomcat server
+  template: src=server.xml dest=/usr/share/tomcat/conf/
+  notify: restart tomcat
+  sudo: True
+
+- name: Configure Tomcat users
+  template: src=tomcat-users.xml dest=/usr/share/tomcat/conf/
+  notify: restart tomcat
+  sudo: True
+
+- name: Install Tomcat init script
+  copy: src=tomcat-initscript.sh dest=/etc/init.d/tomcat mode=0755
+  sudo: True
+
+- name: Start Tomcat
+  service: name=tomcat state=restarted enabled=yes
+  sudo: True
+
+# TODO: Fixup iptables.
+#- name: deploy iptables rules
+#  template: src=iptables-save dest=/etc/sysconfig/iptables
+#  notify: restart iptables
+
+- name: wait for tomcat to start
+  wait_for: port={{http_port}}
